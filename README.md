@@ -1,28 +1,26 @@
 # Marks Entry — DU MBBS
 
-A camera-first web app for fast data entry of handwritten exam marks into the
-Dhaka University Final Professional MBBS tabulation sheet. Runs entirely in your
-phone's browser.
+A camera-first web app for fast entry of handwritten exam marks into the Dhaka
+University Final Professional MBBS tabulation sheet. Load your workbook, snap the
+strips, watch the marks land in the real cells, download the filled `.xlsx`.
 
-## Flow
-1. **Load your Excel workbook** (`.xlsx`) — read locally, nothing uploaded.
-2. **Pick photo or manual** entry (photo preferred).
-3. **Add a label** (e.g. `medicine 2nd paper A`) — the app resolves the exact
-   spreadsheet column automatically (Medicine / Surgery / Obs & Gynae all mapped).
-4. **Snap the strips** (multiple at once — a group is usually 4 strips). OCR reads
-   the roll number and mark off each strip; you confirm, then it writes into the cells.
-5. **Split screen**: a draggable Excel-style grid preview on top shows the marks
-   landing in the real cells; a chat-style photo+label feed on the bottom.
-6. **Download the filled `.xlsx`** — the university logos and formatting are kept
-   perfectly intact (cells are edited at the byte level, not through a converter).
+## Architecture
+- `index.html` — the whole frontend (single file; loads JSZip from CDN).
+- `api/ocr.js` — a serverless function (Vercel) that reads the strips with Google
+  Gemini. **The API key lives on the server**, so the app never asks users for a key.
 
-## Recognition
-Photo/OCR mode uses your own free **Google Gemini** key (aistudio.google.com/apikey),
-set in Settings. Manual tap-pad mode needs no key.
+## Deploy (Vercel)
+1. Import this repo at vercel.com (New Project → Import Git Repository).
+2. In Project → Settings → Environment Variables, add:
+   - `GEMINI_API_KEY` = your Google AI Studio key
+   - (optional) `GEMINI_MODEL` = `gemini-2.0-flash`
+3. Deploy. Use the resulting `*.vercel.app` URL for photo mode.
 
-## Files
-- `index.html` — the entire app (single self-contained file, loads JSZip from CDN).
+Manual tap-pad entry works anywhere (no server needed). Photo mode needs the
+Vercel deployment because that is where the key is stored.
 
 ## Privacy
-Everything runs in your browser. The workbook never leaves your device; only a
-photo you choose to scan is sent to Google's Gemini API using your own key.
+The workbook is read and filled entirely in your browser and never uploaded.
+Only the photo you scan is sent to the server, which forwards it to Gemini.
+The filled `.xlsx` keeps the university logos and formatting intact (cells are
+edited at the byte level).

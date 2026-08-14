@@ -237,16 +237,11 @@
 <div class="overlay hide" id="setOverlay">
   <div class="sheetm">
     <h3>Settings</h3>
-    <div class="field">
-      <label>Google Gemini API key <span style="color:var(--muted)">— free at aistudio.google.com/apikey (needed for photo mode)</span></label>
-      <input id="geminiKey" type="password" placeholder="paste key (stored only on this phone)" autocomplete="off">
-    </div>
-    <div class="field"><label>Gemini model</label><input id="geminiModel" value="gemini-2.0-flash"></div>
     <div class="field" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
       <div><label>Quick-marks min</label><input id="qmin" type="number" step="0.5" value="16"></div>
       <div><label>Quick-marks max</label><input id="qmax" type="number" step="0.5" value="28"></div>
     </div>
-    <div class="note">Photo mode sends only the photo you choose to Google's Gemini (using your own free key). Manual mode needs no key. Your marks fill the real workbook — logos and formatting are kept intact.</div>
+    <div class="note">Photo reading is handled by a secure server — no API key needed here. Only the photo you scan is sent for reading; your workbook never leaves this device, and its logos and formatting are kept intact.</div>
     <button class="closebtn" id="setClose">Done</button>
   </div>
 </div>
@@ -419,8 +414,7 @@ async function exportWorkbook(){
 /* ---------------- app state ---------------- */
 let ST={mode:'photo',label:store.get('label',''),resolved:null,photos:[],
   activeSheet:null,activeRolls:[],lastRow:null,manualRoll:null};
-let CFG={geminiKey:store.get('geminiKey',''),geminiModel:store.get('geminiModel','gemini-2.0-flash'),
-  qmin:parseFloat(store.get('qmin','16')),qmax:parseFloat(store.get('qmax','28'))};
+let CFG={qmin:parseFloat(store.get('qmin','16')),qmax:parseFloat(store.get('qmax','28'))};
 const GRIDCOLS=(()=>{const cols=['E','F'];for(let i=colToIdx('K');i<=colToIdx('BO');i++)cols.push(idxToCol(i));return cols;})();
 
 /* ---------------- grid render ---------------- */
@@ -486,23 +480,33 @@ function commitMarks(pairs,bubble){
 let entryLog=JSON.parse(store.get('entrylog','[]')||'[]');
 function saveEntries(n,col){ /* lightweight audit only */ }
 
-/* ---------------- OCR (Gemini) ---------------- */
-function fileToB64(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(f);});}
+/* ---------------- OCR (via backend, key stays server-side) ---------------- */
+// downscale to keep payload small & fast, then base64
+function downscaleImage(file){
+  return new Promise((resolve,reject)=>{
+    const img=new Image(); const url=URL.createObjectURL(file);
+    img.onload=()=>{
+      URL.revokeObjectURL(url);
+      const MAX=1600; let w=img.width,h=img.height;
+      if(Math.max(w,h)>MAX){ const s=MAX/Math.max(w,h); w=Math.round(w*s); h=Math.round(h*s); }
+      const c=document.createElement('canvas'); c.width=w; c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      const durl=c.toDataURL('image/jpeg',0.82);
+      resolve({b64:durl.split(',')[1], mime:'image/jpeg'});
+    };
+    img.onerror=()=>{ URL.revokeObjectURL(url); reject(new Error('image load failed')); };
+    img.src=url;
+  });
+}
 async function geminiRead(file){
-  const key=CFG.geminiKey.trim(); if(!key)throw new Error('no-key');
-  const b64=await fileToB64(file);
-  const prompt="This is a handwritten exam mark strip with two columns: Roll No (রোল নং) on the left and obtained mark (প্রাপ্ত নম্বর) on the right. "+
-    "Read every filled data row top to bottom. Marks are numbers, often ending in .5 (a mark written with an apostrophe or dot like 22-5 means 22.5). "+
-    "If a roll has no mark / is blank, use null for mark. Ignore header rows and any signature at the bottom. "+
-    "Return ONLY a JSON array like [{\"roll\":1573,\"mark\":22.5},{\"roll\":1574,\"mark\":null}].";
-  const url='https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(CFG.geminiModel)+':generateContent';
-  const body={contents:[{parts:[{text:prompt},{inline_data:{mime_type:file.type||'image/jpeg',data:b64}}]}],generationConfig:{temperature:0,response_mime_type:'application/json'}};
-  const resp=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},body:JSON.stringify(body)});
-  if(!resp.ok){const t=await resp.text();throw new Error('API '+resp.status+': '+t.slice(0,160));}
-  const data=await resp.json();
-  let txt=(data.candidates&&data.candidates[0]&&data.candidates[0].content.parts[0].text)||'';
-  txt=txt.replace(/```json/gi,'').replace(/```/g,'').trim();
-  let arr=JSON.parse(txt); if(!Array.isArray(arr))throw new Error('bad-json');
+  const {b64,mime}=await downscaleImage(file);
+  let resp;
+  try{ resp=await fetch('/api/ocr',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({imageBase64:b64,mimeType:mime})}); }
+  catch(e){ throw new Error('backend-unreachable'); }
+  if(resp.status===404){ throw new Error('backend-missing'); }
+  const data=await resp.json().catch(()=>({}));
+  if(!resp.ok){ throw new Error(data.error?(data.error+(data.detail?(' — '+data.detail):'')):('HTTP '+resp.status)); }
+  let arr=data.pairs; if(!Array.isArray(arr))throw new Error('unexpected response');
   return arr.map(o=>({roll:(o.roll!=null&&!isNaN(o.roll))?parseInt(o.roll):null,
                       mark:(o.mark==null||o.mark==='')?'':parseFloat(o.mark)}));
 }
@@ -523,7 +527,6 @@ function addBotBubble(html){
 async function doRead(){
   if(!ST.resolved){ toast('Enter a valid label (e.g. medicine 2nd paper A)'); return; }
   if(!ST.photos.length){ toast('Add at least one photo'); return; }
-  if(!CFG.geminiKey.trim()){ openSettings(); toast('Add your free Gemini key to read photos'); return; }
   const label=$('labelInput').value, photos=ST.photos.slice();
   addUserBubble(label,photos);
   // reset composer thumbs
@@ -533,7 +536,11 @@ async function doRead(){
   for(let i=0;i<photos.length;i++){
     bot.innerHTML='<span class="spin"></span> Reading photo '+(i+1)+' of '+photos.length+'…';
     try{ const pairs=await geminiRead(photos[i].file); all=all.concat(pairs); }
-    catch(e){ bot.innerHTML='<span class="pill bad">✕</span> Could not read photo '+(i+1)+': '+esc(e.message==='no-key'?'no API key set':e.message)+'<br><small style="color:var(--muted)">Fix and try again, or switch to manual.</small>'; return; }
+    catch(e){
+      let msg=esc(e.message);
+      if(e.message==='backend-missing'||e.message==='backend-unreachable')
+        msg='the AI backend isn’t reachable here. Open the app from your Vercel link (photo mode needs the server), or use manual entry.';
+      bot.innerHTML='<span class="pill bad">✕</span> Could not read photo '+(i+1)+': '+msg+'<br><small style="color:var(--muted)">You can switch to manual entry anytime.</small>'; return; }
   }
   // dedupe by roll (last wins), keep order
   const seen={};const merged=[];
@@ -604,10 +611,9 @@ function setMode(m){
   $('toggleMode').textContent=(m==='photo')?'switch to manual ⌨️':'switch to photo 📷';
   if(m==='manual'){renderQuick();updateManualName();}
 }
-function openSettings(){$('geminiKey').value=CFG.geminiKey;$('geminiModel').value=CFG.geminiModel;$('qmin').value=CFG.qmin;$('qmax').value=CFG.qmax;$('setOverlay').classList.remove('hide');}
-function closeSettings(){CFG.geminiKey=$('geminiKey').value.trim();CFG.geminiModel=$('geminiModel').value.trim()||'gemini-2.0-flash';
-  CFG.qmin=parseFloat($('qmin').value)||16;CFG.qmax=parseFloat($('qmax').value)||28;
-  store.set('geminiKey',CFG.geminiKey);store.set('geminiModel',CFG.geminiModel);store.set('qmin',String(CFG.qmin));store.set('qmax',String(CFG.qmax));
+function openSettings(){$('qmin').value=CFG.qmin;$('qmax').value=CFG.qmax;$('setOverlay').classList.remove('hide');}
+function closeSettings(){CFG.qmin=parseFloat($('qmin').value)||16;CFG.qmax=parseFloat($('qmax').value)||28;
+  store.set('qmin',String(CFG.qmin));store.set('qmax',String(CFG.qmax));
   renderQuick();$('setOverlay').classList.add('hide');}
 
 function setupDivider(){
