@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#0f1115">
 <title>Marks Entry — DU MBBS</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{--bg:#0f1115;--panel:#171a21;--panel2:#1e222b;--line:#2a2f3a;--txt:#eef1f6;--muted:#9aa3b2;
     --accent:#3d7bff;--accent2:#2fd4a0;--warn:#ffb020;--danger:#ff5d5d;--grid:#242a35;--gridhdr:#1a1f28;}
@@ -20,6 +21,24 @@
   .pill.ok{background:rgba(47,212,160,.15);color:var(--accent2);border:1px solid rgba(47,212,160,.35);}
   .pill.bad{background:rgba(255,93,93,.15);color:var(--danger);border:1px solid rgba(255,93,93,.35);}
   .pill.warn{background:rgba(255,176,32,.15);color:var(--warn);border:1px solid rgba(255,176,32,.35);}
+
+  /* ---------- Auth / Projects ---------- */
+  #auth,#projects{flex:1;overflow:auto;padding:24px 18px;display:flex;flex-direction:column;justify-content:center;max-width:520px;margin:0 auto;width:100%;}
+  #projects{justify-content:flex-start;padding-top:28px;}
+  .gbtn{display:flex;align-items:center;justify-content:center;gap:10px;background:#fff;color:#1a1a1a;}
+  .gicon{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#fff;color:#4285F4;font-weight:900;border:1px solid #ddd;font-family:Arial,sans-serif;}
+  .ordiv{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px;margin:16px 0;}
+  .ordiv:before,.ordiv:after{content:"";flex:1;height:1px;background:var(--line);}
+  .phead{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:18px;}
+  .projcard{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;gap:12px;}
+  .projcard .pinfo{flex:1;min-width:0;}
+  .projcard .pn{font-weight:800;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .projcard .pm{font-size:12px;color:var(--muted);margin-top:2px;}
+  .projcard .popen{padding:9px 16px;border-radius:10px;background:var(--accent2);color:#04120c;font-weight:800;font-size:14px;}
+  .projcard .pdel{width:34px;height:34px;border-radius:9px;background:#20242e;color:var(--danger);font-size:16px;}
+  .projempty{text-align:center;color:#4a5160;padding:30px 10px;font-size:14px;}
+  .cloudstatus{flex:none;font-size:11px;color:var(--muted);white-space:nowrap;}
+  .cloudstatus.saving{color:var(--warn);} .cloudstatus.saved{color:var(--accent2);} .cloudstatus.err{color:var(--danger);}
 
   /* ---------- Onboarding ---------- */
   #onboard{flex:1;overflow:auto;padding:22px 18px;display:flex;flex-direction:column;justify-content:center;max-width:560px;margin:0 auto;width:100%;}
@@ -149,9 +168,43 @@
 <body>
 
 <!-- ============ ONBOARDING ============ -->
-<div id="onboard">
+<!-- ============ LOGIN ============ -->
+<div id="auth" class="hide">
+  <div class="logo">Marks Entry</div>
+  <div class="sub">Sign in to keep your projects in the cloud — pick up any session on any device without re-downloading.</div>
+  <button class="bigbtn gbtn" id="googleBtn"><span class="gicon">G</span> Continue with Google</button>
+  <div class="ordiv"><span>or</span></div>
+  <div class="step" style="margin-bottom:0;">
+    <label style="font-size:13px;color:var(--muted);">Sign in with a magic link (no password)</label>
+    <input id="emailInput" type="email" inputmode="email" placeholder="you@email.com" autocomplete="email"
+      style="width:100%;margin-top:8px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px;color:var(--txt);">
+    <button class="bigbtn" id="emailBtn" style="margin-top:10px;">Email me a login link</button>
+    <div id="authStatus" style="font-size:13px;color:var(--muted);margin-top:10px;"></div>
+  </div>
+</div>
+
+<!-- ============ PROJECTS ============ -->
+<div id="projects" class="hide">
+  <div class="phead">
+    <div>
+      <div class="logo" style="font-size:22px;">Your projects</div>
+      <div class="sub" id="projSub" style="margin:2px 0 0;font-size:13px;"></div>
+    </div>
+    <button class="tbtn" id="signOutBtn">Sign out</button>
+  </div>
+  <div id="projList"></div>
+  <button class="bigbtn green" id="newProjBtn" style="margin-top:14px;">+ New project</button>
+  <div id="projNote" style="font-size:12.5px;color:var(--muted);margin-top:10px;text-align:center;"></div>
+</div>
+
+<div id="onboard" class="hide">
   <div class="logo">Marks Entry</div>
   <div class="sub">Camera-first data entry for the DU Final Professional MBBS tabulation sheet. Load your workbook, snap the strips, watch the cells fill.</div>
+  <div id="newProjNameWrap" class="step hide">
+    <h3><span class="n">•</span> Name this project</h3>
+    <input id="projNameInput" placeholder="e.g. Batch 16 — Medicine" autocomplete="off"
+      style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px;color:var(--txt);">
+  </div>
 
   <div class="step" id="stepFile">
     <h3><span class="n">1</span> Load your Excel workbook</h3>
@@ -176,8 +229,10 @@
 <!-- ============ WORKSPACE ============ -->
 <div id="ws" class="hide">
   <div class="topbar">
+    <button class="iconbtn hide" id="backBtn" title="Projects">‹</button>
     <div class="fname" id="wsName">workbook.xlsx</div>
     <span class="wsstatus" id="wsStatus"></span>
+    <span class="cloudstatus" id="cloudStatus"></span>
     <button class="iconbtn" id="setBtn">⚙️</button>
     <button class="tbtn green" id="exportBtn">Download ⤓</button>
   </div>
@@ -253,6 +308,15 @@
 
 <script>
 "use strict";
+/* ================= CLOUD CONFIG =================
+   Paste your Supabase project values here (both are safe to be public;
+   security is enforced by Row Level Security in the database). */
+const SUPABASE_URL='__SUPABASE_URL__';
+const SUPABASE_ANON_KEY='__SUPABASE_ANON_KEY__';
+const CLOUD = !!(SUPABASE_URL && SUPABASE_URL.indexOf('__SUPABASE')<0 && SUPABASE_ANON_KEY && SUPABASE_ANON_KEY.indexOf('__SUPABASE')<0);
+let sb=null; // supabase client
+let SESSION=null, CURRENT_PROJECT=null;
+const MAX_PROJECTS=3, BUCKET='workbooks';
 /* ---------------- storage shim ---------------- */
 const store=(()=>{let ok=true;try{localStorage.setItem('__t','1');localStorage.removeItem('__t');}catch(e){ok=false;}const m={};
   return{get:(k,d)=>{try{if(ok){const v=localStorage.getItem(k);return v===null?d:v;}}catch(e){}return k in m?m[k]:d;},
@@ -400,21 +464,28 @@ function ensureSharedString(str){
   WB.sst.push(str); return WB.sst.length-1;
 }
 
-async function exportWorkbook(){
+async function buildBlob(){
   // write back modified sheet xml + sharedStrings, keep everything else byte-identical
   for(const sh of WB.sheets){ WB.zip.file(sh.path, WB.xml[sh.path]); }
-  // rebuild sharedStrings if we added any (absent "A")
   if(WB.zip.file('xl/sharedStrings.xml')){
     const items=WB.sst.map(s=>'<si><t xml:space="preserve">'+esc(s)+'</t></si>').join('');
     const sx='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="'+WB.sst.length+'" uniqueCount="'+WB.sst.length+'">'+items+'</sst>';
     WB.zip.file('xl/sharedStrings.xml', sx);
   }
-  const blob=await WB.zip.generateAsync({type:'blob',compression:'DEFLATE',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  return await WB.zip.generateAsync({type:'blob',compression:'DEFLATE',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+}
+async function exportWorkbook(){
+  const blob=await buildBlob();
   const name=WB.fname.replace(/\.xlsx$/i,'')+'_filled.xlsx';
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),1500);
   ST.dirty=false; updateStatus();
   toast('Downloaded '+name);
+}
+// load workbook from a Blob/ArrayBuffer (cloud) instead of a File input
+async function loadWorkbookFromBlob(blob, name){
+  const file=new File([blob], name||'workbook.xlsx', {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  return await loadWorkbook(file);
 }
 
 /* ---------------- app state ---------------- */
@@ -480,7 +551,7 @@ function commitMarks(pairs,bubble){
   if(sheetPath){ ST.activeSheet=sheetPath; ST.lastRow=lastRow; ST.flashCell=col+lastRow; }
   renderGrid(); ST.flashCell=null;
   buzz(14);
-  if(done>0){ persistLog(); ST.dirty=true; updateStatus(); }
+  if(done>0){ persistLog(); ST.dirty=true; updateStatus(); scheduleCloudSave(); }
   if(bubble){ bubble.innerHTML='<div class="committed">✓ '+done+' marks saved to this device · column '+col+(unmatched.length?(' · '+unmatched.length+' roll(s) not found: '+unmatched.join(', ')):'')+'<br><small style="color:var(--muted)">Tap Download to also save the .xlsx file.</small></div>'; }
   else toast('✓ '+done+' saved · col '+col+(unmatched.length?(' · '+unmatched.length+' not found'):''));
 }
@@ -662,19 +733,122 @@ function setupDivider(){
 
 /* ---------------- init ---------------- */
 function enterWorkspace(){
-  $('onboard').classList.add('hide');$('ws').classList.remove('hide');
-  $('wsName').innerHTML=esc(WB.fname)+' <small>· '+Object.keys(WB.rollIndex).length+' students</small>';
+  showScreen('ws');
+  const title = (CLOUD&&CURRENT_PROJECT)? CURRENT_PROJECT.name : WB.fname;
+  $('wsName').innerHTML=esc(title)+' <small>· '+Object.keys(WB.rollIndex).length+' students</small>';
+  if($('backBtn')) $('backBtn').classList.toggle('hide', !CLOUD);
   $('labelInput').value=ST.label;renderResolveChip();renderComposerThumbs();renderGrid();setMode(ST.mode);
   updateStatus();
-  if(entryLog.length){ setTimeout(()=>{
+  if(CLOUD){ setCloud('saved','✓ saved to cloud'); }
+  // local-only recovery prompt (cloud mode's source of truth is the cloud file, so skip there)
+  else if(entryLog.length){ setTimeout(()=>{
     if(confirm('You have '+entryLog.length+' mark(s) saved on this device from a previous session. Re-apply them to this workbook now?')) reapplyLog();
     else updateStatus();
   },350); }
 }
+/* ================= CLOUD MODULE ================= */
+function showScreen(id){ ['auth','projects','onboard','ws'].forEach(s=>{ const el=$(s); if(el) el.classList.toggle('hide', s!==id); }); }
+async function cloudInit(){
+  try{ sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY); }
+  catch(e){ showScreen('auth'); $('authStatus').textContent='Could not init cloud: '+e.message; return; }
+  const { data:{ session } } = await sb.auth.getSession(); SESSION=session;
+  sb.auth.onAuthStateChange((_e,s)=>{ SESSION=s; route(); });
+  route();
+}
+function route(){ if(!SESSION){ showScreen('auth'); } else { showScreen('projects'); loadProjects(); } }
+async function signInGoogle(){ $('authStatus').textContent='Opening Google…';
+  const { error }=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+location.pathname}});
+  if(error) $('authStatus').textContent='Google sign-in error: '+error.message+' (enable Google in Supabase → Auth → Providers).'; }
+async function signInEmail(){ const email=$('emailInput').value.trim();
+  if(!email){ $('authStatus').textContent='Enter your email first.'; return; }
+  $('authStatus').textContent='Sending link…';
+  const { error }=await sb.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname}});
+  $('authStatus').textContent=error?('Error: '+error.message):('✓ Check '+email+' for a login link, then open it on this device.'); }
+async function loadProjects(){
+  $('projList').innerHTML='<div class="projempty"><span class="spin"></span> Loading…</div>';
+  const { data,error }=await sb.from('projects').select('*').order('updated_at',{ascending:false});
+  if(error){ $('projList').innerHTML='<div class="projempty">Error: '+esc(error.message)+'</div>'; return; }
+  renderProjects(data||[]);
+}
+function timeago(ts){ try{ const d=(Date.now()-new Date(ts).getTime())/1000;
+  if(d<60)return 'just now'; if(d<3600)return Math.floor(d/60)+'m ago'; if(d<86400)return Math.floor(d/3600)+'h ago'; return Math.floor(d/86400)+'d ago'; }catch(e){return '';} }
+function renderProjects(list){
+  window.__projects=list;
+  $('projSub').textContent=(SESSION&&SESSION.user)?SESSION.user.email:'';
+  const el=$('projList');
+  if(!list.length){ el.innerHTML='<div class="projempty">No projects yet. Tap “New project” to start.</div>'; }
+  else{ el.innerHTML=list.map(p=>'<div class="projcard"><div class="pinfo"><div class="pn">'+esc(p.name)+'</div><div class="pm">updated '+timeago(p.updated_at)+'</div></div>'
+      +'<button class="popen" data-id="'+p.id+'">Open</button><button class="pdel" data-id="'+p.id+'">🗑</button></div>').join('');
+    el.querySelectorAll('.popen').forEach(b=>b.addEventListener('click',()=>openProject(list.find(x=>x.id===b.dataset.id))));
+    el.querySelectorAll('.pdel').forEach(b=>b.addEventListener('click',()=>deleteProject(list.find(x=>x.id===b.dataset.id)))); }
+  const full=list.length>=MAX_PROJECTS;
+  $('newProjBtn').disabled=full; $('newProjBtn').style.opacity=full?0.5:1;
+  $('projNote').textContent=full?('Maximum of '+MAX_PROJECTS+' projects reached — delete one to add another.'):(list.length+' of '+MAX_PROJECTS+' projects used.');
+}
+function startNewProject(){
+  if((window.__projects||[]).length>=MAX_PROJECTS){ toast('Max '+MAX_PROJECTS+' projects — delete one first'); return; }
+  CURRENT_PROJECT=null; showScreen('onboard');
+  $('newProjNameWrap').classList.remove('hide'); $('stepMode').classList.add('hide');
+  $('fileStatus').innerHTML=''; $('projNameInput').value='';
+}
+async function createProjectFromFile(file){
+  const name=($('projNameInput').value.trim())||file.name.replace(/\.xlsx$/i,'');
+  $('fileStatus').innerHTML='<div class="fileok"><span class="spin"></span> Reading workbook…</div>';
+  let r; try{ r=await loadWorkbook(file); }
+  catch(err){ $('fileStatus').innerHTML='<div class="filebad">Could not read that file: '+esc(err.message)+'</div>'; return; }
+  $('fileStatus').innerHTML='<div class="fileok"><span class="spin"></span> Creating project & uploading…</div>';
+  try{
+    const uid=SESSION.user.id;
+    const { data:proj, error:e1 }=await sb.from('projects').insert({name,file_path:''}).select().single();
+    if(e1) throw e1;
+    const path=uid+'/'+proj.id+'.xlsx';
+    const blob=await buildBlob();
+    const { error:e2 }=await sb.storage.from(BUCKET).upload(path,blob,{upsert:true,contentType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    if(e2) throw e2;
+    await sb.from('projects').update({file_path:path,updated_at:new Date().toISOString()}).eq('id',proj.id);
+    CURRENT_PROJECT=Object.assign({},proj,{file_path:path}); entryLog=[];
+    $('newProjNameWrap').classList.add('hide'); $('stepMode').classList.remove('hide');
+    $('fileStatus').innerHTML='<div class="fileok">✓ '+r.students+' students loaded. Choose how to enter marks.</div>';
+  }catch(err){ $('fileStatus').innerHTML='<div class="filebad">Could not create project: '+esc(err.message||err)+(String(err.message||err).match(/limit/i)?'':'')+'</div>'; }
+}
+async function openProject(p){
+  if(!p)return; showScreen('onboard'); $('newProjNameWrap').classList.add('hide'); $('stepMode').classList.add('hide');
+  $('fileStatus').innerHTML='<div class="fileok"><span class="spin"></span> Opening '+esc(p.name)+'…</div>';
+  try{
+    const { data,error }=await sb.storage.from(BUCKET).download(p.file_path);
+    if(error) throw error;
+    await loadWorkbookFromBlob(data,p.name+'.xlsx');
+    CURRENT_PROJECT=p; entryLog=[]; ST.mode='photo'; enterWorkspace(); setCloud('saved','✓ saved to cloud');
+  }catch(err){ $('fileStatus').innerHTML='<div class="filebad">Could not open: '+esc(err.message||err)+'</div>'; }
+}
+async function deleteProject(p){
+  if(!p)return;
+  if(!confirm('Delete project “'+p.name+'”? This removes its saved workbook from the cloud. Download it first if you need a copy.'))return;
+  try{ if(p.file_path) await sb.storage.from(BUCKET).remove([p.file_path]); await sb.from('projects').delete().eq('id',p.id); toast('Deleted'); loadProjects(); }
+  catch(err){ toast('Delete failed: '+(err.message||err)); }
+}
+let saveTimer=null,saving=false,saveQueued=false;
+function setCloud(state,msg){ const el=$('cloudStatus'); if(!el)return; el.className='cloudstatus '+(state||''); el.textContent=msg||''; }
+function scheduleCloudSave(){ if(!CLOUD||!CURRENT_PROJECT)return; setCloud('saving','● saving…'); clearTimeout(saveTimer); saveTimer=setTimeout(doCloudSave,1500); }
+async function doCloudSave(){
+  if(!CLOUD||!CURRENT_PROJECT)return;
+  if(saving){ saveQueued=true; return; }
+  saving=true; setCloud('saving','● saving…');
+  try{
+    const blob=await buildBlob();
+    const { error }=await sb.storage.from(BUCKET).upload(CURRENT_PROJECT.file_path,blob,{upsert:true,contentType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    if(error) throw error;
+    await sb.from('projects').update({updated_at:new Date().toISOString()}).eq('id',CURRENT_PROJECT.id);
+    ST.dirty=false; setCloud('saved','✓ saved to cloud'); persistLog();
+  }catch(err){ setCloud('err','⚠ save failed'); toast('Cloud save failed — marks are safe on this device; will retry on next entry.'); }
+  saving=false; if(saveQueued){ saveQueued=false; scheduleCloudSave(); }
+}
+
 function init(){
-  // file upload
+  // file upload (local mode: load & go; cloud mode: create/attach to project)
   $('wbFile').addEventListener('change',async e=>{
-    const f=e.target.files[0];if(!f)return;
+    const f=e.target.files[0];if(!f)return; e.target.value='';
+    if(CLOUD && SESSION){ await createProjectFromFile(f); return; }
     $('fileStatus').innerHTML='<div class="fileok"><span class="spin"></span> Reading workbook…</div>';
     try{ const r=await loadWorkbook(f);
       $('fileStatus').innerHTML='<div class="fileok">✓ Loaded <b>'+esc(WB.fname)+'</b> — '+r.students+' students across '+r.sheets+' sheets.</div>';
@@ -700,6 +874,15 @@ function init(){
   document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.add('hide');}));
   setupDivider();
   window.addEventListener('beforeunload',e=>{ if(ST.dirty){ e.preventDefault(); e.returnValue=''; } });
+  // cloud buttons
+  if($('googleBtn')) $('googleBtn').addEventListener('click',signInGoogle);
+  if($('emailBtn')) $('emailBtn').addEventListener('click',signInEmail);
+  if($('signOutBtn')) $('signOutBtn').addEventListener('click',()=>{ if(ST.dirty&&!confirm('You have un-synced changes. Sign out anyway?'))return; sb.auth.signOut(); });
+  if($('newProjBtn')) $('newProjBtn').addEventListener('click',startNewProject);
+  if($('backBtn')) $('backBtn').addEventListener('click',()=>{ showScreen('projects'); loadProjects(); });
+  // routing
+  if(CLOUD){ showScreen('auth'); cloudInit(); }
+  else { showScreen('onboard'); }
 }
 document.addEventListener('DOMContentLoaded',init);
 window.__parseLabel=parseLabel; window.__WB=WB; window.__ST=ST; // for tests
