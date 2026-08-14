@@ -48,6 +48,8 @@
     background:#12151c;border-bottom:1px solid var(--line);}
   .topbar .fname{flex:1;font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .topbar .fname small{color:var(--muted);font-weight:500;}
+  .wsstatus{flex:none;font-size:11px;color:var(--accent2);white-space:nowrap;}
+  .wsstatus.dirty{color:var(--warn);}
   .tbtn{padding:8px 12px;border-radius:10px;background:var(--panel2);border:1px solid var(--line);font-size:13px;font-weight:700;}
   .tbtn.green{background:var(--accent2);color:#04120c;border-color:var(--accent2);}
   .iconbtn{width:38px;height:38px;border-radius:10px;background:var(--panel2);border:1px solid var(--line);font-size:17px;}
@@ -175,6 +177,7 @@
 <div id="ws" class="hide">
   <div class="topbar">
     <div class="fname" id="wsName">workbook.xlsx</div>
+    <span class="wsstatus" id="wsStatus"></span>
     <button class="iconbtn" id="setBtn">⚙️</button>
     <button class="tbtn green" id="exportBtn">Download ⤓</button>
   </div>
@@ -242,6 +245,8 @@
       <div><label>Quick-marks max</label><input id="qmax" type="number" step="0.5" value="28"></div>
     </div>
     <div class="note">Photo reading is handled by a secure server — no API key needed here. Only the photo you scan is sent for reading; your workbook never leaves this device, and its logos and formatting are kept intact.</div>
+    <div class="note" id="savedNote" style="margin-top:8px;"></div>
+    <button class="closebtn" id="clearLog" style="background:var(--panel2);border:1px solid var(--line);color:var(--danger);margin-top:8px;">Clear saved marks on this device</button>
     <button class="closebtn" id="setClose">Done</button>
   </div>
 </div>
@@ -408,12 +413,13 @@ async function exportWorkbook(){
   const name=WB.fname.replace(/\.xlsx$/i,'')+'_filled.xlsx';
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+  ST.dirty=false; updateStatus();
   toast('Downloaded '+name);
 }
 
 /* ---------------- app state ---------------- */
 let ST={mode:'photo',label:store.get('label',''),resolved:null,photos:[],
-  activeSheet:null,activeRolls:[],lastRow:null,manualRoll:null};
+  activeSheet:null,activeRolls:[],lastRow:null,manualRoll:null,dirty:false};
 let CFG={qmin:parseFloat(store.get('qmin','16')),qmax:parseFloat(store.get('qmax','28'))};
 const GRIDCOLS=(()=>{const cols=['E','F'];for(let i=colToIdx('K');i<=colToIdx('BO');i++)cols.push(idxToCol(i));return cols;})();
 
@@ -467,18 +473,39 @@ function commitMarks(pairs,bubble){
     const idx=WB.rollIndex[p.roll];
     if(!idx){ unmatched.push(p.roll); return; }
     writeCell(idx.path,col,idx.row,p.mark);
+    logEntry(p.roll,col,p.mark);
     done++; lastRow=idx.row; sheetPath=idx.path;
     if(!ST.activeRolls.includes(p.roll))ST.activeRolls.push(p.roll);
   });
   if(sheetPath){ ST.activeSheet=sheetPath; ST.lastRow=lastRow; ST.flashCell=col+lastRow; }
   renderGrid(); ST.flashCell=null;
   buzz(14);
-  if(bubble){ bubble.innerHTML='<div class="committed">✓ '+done+' marks written to column '+col+(unmatched.length?(' · '+unmatched.length+' roll(s) not found: '+unmatched.join(', ')):'')+'</div>'; }
-  else toast('✓ '+done+' written to col '+col+(unmatched.length?(' · '+unmatched.length+' not found'):''));
-  saveEntries(done,col);
+  if(done>0){ persistLog(); ST.dirty=true; updateStatus(); }
+  if(bubble){ bubble.innerHTML='<div class="committed">✓ '+done+' marks saved to this device · column '+col+(unmatched.length?(' · '+unmatched.length+' roll(s) not found: '+unmatched.join(', ')):'')+'<br><small style="color:var(--muted)">Tap Download to also save the .xlsx file.</small></div>'; }
+  else toast('✓ '+done+' saved · col '+col+(unmatched.length?(' · '+unmatched.length+' not found'):''));
 }
+/* durable per-input persistence: every committed mark is written to localStorage immediately */
 let entryLog=JSON.parse(store.get('entrylog','[]')||'[]');
-function saveEntries(n,col){ /* lightweight audit only */ }
+function logEntry(roll,col,mark){
+  const k=roll+'|'+col;
+  const rec={roll:roll,col:col,mark:mark,label:ST.label};
+  const i=entryLog.findIndex(e=>(e.roll+'|'+e.col)===k);
+  if(i>=0)entryLog[i]=rec; else entryLog.push(rec);
+}
+function persistLog(){ try{ store.set('entrylog',JSON.stringify(entryLog)); store.set('entrylog_file',WB.fname||''); }catch(e){} }
+function reapplyLog(){
+  let n=0,last=null,path=null;
+  entryLog.forEach(e=>{ const idx=WB.rollIndex[e.roll]; if(!idx)return; writeCell(idx.path,e.col,idx.row,e.mark); n++; last=idx.row; path=idx.path; if(!ST.activeRolls.includes(e.roll))ST.activeRolls.push(e.roll); });
+  if(path){ ST.activeSheet=path; ST.lastRow=last; }
+  renderGrid(); ST.dirty=true; updateStatus();
+  toast('Re-applied '+n+' saved marks');
+}
+function updateStatus(){
+  const btn=$('exportBtn'); const st=$('wsStatus'); if(!btn)return;
+  const total=entryLog.length;
+  btn.textContent = (ST.dirty && total) ? ('Download ⤓ ('+total+')') : 'Download ⤓';
+  if(st){ st.textContent = total ? ('✓ '+total+' saved on device'+(ST.dirty?' · not downloaded':'')) : ''; st.className='wsstatus'+(ST.dirty&&total?' dirty':''); }
+}
 
 /* ---------------- OCR (via backend, key stays server-side) ---------------- */
 // downscale to keep payload small & fast, then base64
@@ -611,7 +638,9 @@ function setMode(m){
   $('toggleMode').textContent=(m==='photo')?'switch to manual ⌨️':'switch to photo 📷';
   if(m==='manual'){renderQuick();updateManualName();}
 }
-function openSettings(){$('qmin').value=CFG.qmin;$('qmax').value=CFG.qmax;$('setOverlay').classList.remove('hide');}
+function openSettings(){$('qmin').value=CFG.qmin;$('qmax').value=CFG.qmax;
+  const sn=$('savedNote'); if(sn){ sn.textContent = entryLog.length ? (entryLog.length+' mark(s) are saved on this device and will be offered for re-apply next time you load the workbook.') : 'No marks saved on this device yet.'; }
+  $('setOverlay').classList.remove('hide');}
 function closeSettings(){CFG.qmin=parseFloat($('qmin').value)||16;CFG.qmax=parseFloat($('qmax').value)||28;
   store.set('qmin',String(CFG.qmin));store.set('qmax',String(CFG.qmax));
   renderQuick();$('setOverlay').classList.add('hide');}
@@ -634,6 +663,11 @@ function enterWorkspace(){
   $('onboard').classList.add('hide');$('ws').classList.remove('hide');
   $('wsName').innerHTML=esc(WB.fname)+' <small>· '+Object.keys(WB.rollIndex).length+' students</small>';
   $('labelInput').value=ST.label;renderResolveChip();renderComposerThumbs();renderGrid();setMode(ST.mode);
+  updateStatus();
+  if(entryLog.length){ setTimeout(()=>{
+    if(confirm('You have '+entryLog.length+' mark(s) saved on this device from a previous session. Re-apply them to this workbook now?')) reapplyLog();
+    else updateStatus();
+  },350); }
 }
 function init(){
   // file upload
@@ -660,8 +694,10 @@ function init(){
   $('exportBtn').addEventListener('click',()=>{ if(!WB.loaded){toast('Load a workbook first');return;} exportWorkbook(); });
   $('setBtn').addEventListener('click',openSettings);
   $('setClose').addEventListener('click',closeSettings);
+  $('clearLog').addEventListener('click',()=>{ if(confirm('Clear all marks saved on this device? Download your filled file first if you still need them. (This does not change any file you already downloaded.)')){ entryLog=[]; persistLog(); ST.dirty=false; updateStatus(); toast('Cleared saved marks'); $('setOverlay').classList.add('hide'); } });
   document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.add('hide');}));
   setupDivider();
+  window.addEventListener('beforeunload',e=>{ if(ST.dirty){ e.preventDefault(); e.returnValue=''; } });
 }
 document.addEventListener('DOMContentLoaded',init);
 window.__parseLabel=parseLabel; window.__WB=WB; window.__ST=ST; // for tests
