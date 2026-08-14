@@ -495,9 +495,9 @@ async function geminiRead(file){
     "Read every filled data row top to bottom. Marks are numbers, often ending in .5 (a mark written with an apostrophe or dot like 22-5 means 22.5). "+
     "If a roll has no mark / is blank, use null for mark. Ignore header rows and any signature at the bottom. "+
     "Return ONLY a JSON array like [{\"roll\":1573,\"mark\":22.5},{\"roll\":1574,\"mark\":null}].";
-  const url='https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(CFG.geminiModel)+':generateContent?key='+encodeURIComponent(key);
+  const url='https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(CFG.geminiModel)+':generateContent';
   const body={contents:[{parts:[{text:prompt},{inline_data:{mime_type:file.type||'image/jpeg',data:b64}}]}],generationConfig:{temperature:0,response_mime_type:'application/json'}};
-  const resp=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const resp=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},body:JSON.stringify(body)});
   if(!resp.ok){const t=await resp.text();throw new Error('API '+resp.status+': '+t.slice(0,160));}
   const data=await resp.json();
   let txt=(data.candidates&&data.candidates[0]&&data.candidates[0].content.parts[0].text)||'';
