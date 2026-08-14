@@ -1,5 +1,8 @@
-// Serverless OCR proxy — keeps the Gemini API key server-side.
-// Set GEMINI_API_KEY (and optionally GEMINI_MODEL) in Vercel → Project → Settings → Environment Variables.
+// Serverless OCR proxy — keeps the Gemini API key server-side, with automatic
+// retry/backoff for transient overload (429/500/502/503) responses.
+// Set GEMINI_API_KEY (and optionally GEMINI_MODEL) in Vercel → Settings → Environment Variables.
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -30,16 +33,30 @@ module.exports = async (req, res) => {
       generationConfig: { temperature: 0, response_mime_type: 'application/json' }
     };
 
-    const r = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-      body: JSON.stringify(gemBody)
-    });
-    if (!r.ok) {
-      const t = await r.text();
-      res.status(502).json({ error: 'Gemini API ' + r.status, detail: t.slice(0, 400) });
+    // Retry transient failures with exponential backoff + jitter.
+    const RETRYABLE = new Set([429, 500, 502, 503]);
+    const MAX_ATTEMPTS = 5;
+    let r = null, lastDetail = '', lastStatus = 0;
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      if (attempt > 0) await sleep(Math.min(500 * Math.pow(2, attempt - 1), 4000) + Math.floor(Math.random() * 250));
+      try {
+        r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body: JSON.stringify(gemBody) });
+      } catch (netErr) { lastDetail = 'network: ' + String(netErr && netErr.message); lastStatus = 0; continue; }
+      if (r.ok) break;
+      lastStatus = r.status;
+      lastDetail = (await r.text()).slice(0, 400);
+      if (!RETRYABLE.has(r.status)) {
+        res.status(502).json({ error: 'Gemini API ' + r.status, detail: lastDetail });
+        return;
+      }
+      // else loop and retry
+    }
+
+    if (!r || !r.ok) {
+      res.status(503).json({ error: 'Gemini is briefly overloaded (high demand). Your photos are still here — just tap Read again in a moment.', detail: lastDetail, lastStatus });
       return;
     }
+
     const data = await r.json();
     let txt = (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts[0].text) || '';
     txt = txt.replace(/```json/gi, '').replace(/```/g, '').trim();

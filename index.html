@@ -567,7 +567,9 @@ async function doRead(){
       let msg=esc(e.message);
       if(e.message==='backend-missing'||e.message==='backend-unreachable')
         msg='the AI backend isn’t reachable here. Open the app from your Vercel link (photo mode needs the server), or use manual entry.';
-      bot.innerHTML='<span class="pill bad">✕</span> Could not read photo '+(i+1)+': '+msg+'<br><small style="color:var(--muted)">You can switch to manual entry anytime.</small>'; return; }
+      // give the photos back so the user can just tap Read again
+      ST.photos=photos; renderComposerThumbs(); $('readBtn').disabled=!ST.photos.length;
+      bot.innerHTML='<span class="pill bad">✕</span> Could not read photo '+(i+1)+': '+msg+'<br><small style="color:var(--muted)">Your photos are back below — tap Read to retry, or switch to manual.</small>'; return; }
   }
   // dedupe by roll (last wins), keep order
   const seen={};const merged=[];
