@@ -333,25 +333,55 @@ const MAP={
   OBG:{name:'Obs & Gynae',c:{'1P.A':'BB','1P.B':'BC','2P.A':'BF','2P.B':'BG','FORM':'BJ','OSPE':'BL','ORAL':'BM','CLIN':'BN','WTOT':'BK','TOT':'BO'}},
 };
 const COMP_NAME={'1P':'1st Paper','2P':'2nd Paper','FORM':'Formative','OSPE':'OSPE','ORAL':'Oral','CLIN':'Clinical','WTOT':'Written Total','TOT':'Subject Total'};
+// Forgiving label parser: understands almost any sensible phrasing, in any order.
+// e.g. "medicine 2nd paper A", "med paper 2 a", "A 2nd paper medicine",
+//      "surg ospe", "gynae viva", "obs clinical", "med p1 b", "medicine 2 a".
 function parseLabel(raw){
   if(!raw||!raw.trim())return null;
-  const s=' '+raw.toLowerCase().replace(/[_\-]/g,' ').replace(/\s+/g,' ')+' ';
-  let subj=/\bmed/.test(s)?'MED':/\bsurg/.test(s)?'SURG':(/\bobs|gyn|o ?& ?g|\bobg/.test(s)?'OBG':null);
-  if(!subj)return{error:'subject'};
-  let comp=/\bospe/.test(s)?'OSPE':/\boral/.test(s)?'ORAL':(/\bcl[in]*ical|\bclnical/.test(s)?'CLIN':
-    (/\bformativ/.test(s)?'FORM':(/2nd|second|paper ?2|p2|\b2 ?p/.test(s)?'2P':(/1st|first|paper ?1|p1|\b1 ?p/.test(s)?'1P':
-    (/written.*total|\bwtot/.test(s)?'WTOT':(/subject.*total|\btotal\b/.test(s)?'TOT':null))))));
-  if(!comp)return{error:'component',subj};
+  // normalize: lowercase, turn separators into spaces, & -> and, collapse spaces
+  const s=' '+raw.toLowerCase().replace(/[._\-\/,]/g,' ').replace(/&/g,' and ').replace(/\s+/g,' ')+' ';
+
+  // ---- subject ----
+  let subj = /\bmed/.test(s) ? 'MED'
+           : /\bsurg/.test(s) ? 'SURG'
+           : (/\bobs|\bobg|\bo b g|gyn|gynae|gynec|gynaec|obstet|\bog\b/.test(s) ? 'OBG' : null);
+  if(!subj) return {error:'subject'};
+
+  // ---- component ----
+  let comp=null;
+  if(/\bospe\b|\bosce\b/.test(s)) comp='OSPE';
+  else if(/\boral\b|\bviva\b/.test(s)) comp='ORAL';
+  else if(/\bclinical\b|\bclnical\b|\bclin\b/.test(s)) comp='CLIN';
+  else if(/\bformativ/.test(s)) comp='FORM';
+  else if(/written total|\bwtot\b/.test(s)) comp='WTOT';
+  else if(/subject total|grand total|\btotal\b/.test(s)) comp='TOT';
+  else {
+    // a written paper — which one?
+    let paper = /\bsecond\b|2nd|paper ?2|\bp ?2\b/.test(s) ? 2
+              : /\bfirst\b|1st|paper ?1|\bp ?1\b/.test(s) ? 1
+              : (/\b2\b/.test(s) ? 2 : (/\b1\b/.test(s) ? 1 : null));
+    if(paper) comp = (paper===2) ? '2P' : '1P';
+  }
+  if(!comp) return {error:'component', subj};
+
+  // ---- sub-column for papers (A / B / B-1 / B-2 / C / D) ----
   let key=comp;
   if(comp==='1P'||comp==='2P'){
-    let sub=/b ?1\b/.test(s)?'B1':/b ?2\b/.test(s)?'B2':(/\bd\b/.test(s)?'D':(/\bc\b/.test(s)?'C':(/\bb\b/.test(s)?'B':(/\ba\b/.test(s)?'A':null))));
-    if(!sub)return{error:'sub',subj,comp};
+    let sub = /\bb ?1\b|\bb1\b/.test(s) ? 'B1'
+            : /\bb ?2\b|\bb2\b/.test(s) ? 'B2'
+            : /\bd\b|part d|section d/.test(s) ? 'D'
+            : /\bc\b|part c|section c/.test(s) ? 'C'
+            : /\bb\b|part b|section b/.test(s) ? 'B'
+            : /\ba\b|part a|section a/.test(s) ? 'A'
+            : null;
+    if(!sub) return {error:'sub', subj, comp};
     key=comp+'.'+sub;
   }
+
   const col=MAP[subj].c[key];
-  if(!col)return{error:'nomap',subj,comp,key};
-  let sub=key.includes('.')?key.split('.')[1].replace('B1','B-1').replace('B2','B-2'):'';
-  return{subj,comp,key,col,desc:MAP[subj].name+' · '+COMP_NAME[comp]+(sub?(' · '+sub):'')};
+  if(!col) return {error:'nomap', subj, comp, key};
+  let subd=key.includes('.')?key.split('.')[1].replace('B1','B-1').replace('B2','B-2'):'';
+  return {subj,comp,key,col,desc:MAP[subj].name+' · '+COMP_NAME[comp]+(subd?(' · '+subd):'')};
 }
 
 /* ---------------- column-letter helpers ---------------- */
