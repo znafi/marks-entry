@@ -17,7 +17,7 @@ module.exports = async (req, res) => {
     const mimeType = (body && body.mimeType) || 'image/jpeg';
     if (!imageBase64) { res.status(400).json({ error: 'No image sent.' }); return; }
 
-    const model = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+    const model = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
     const prompt =
       "This is a handwritten exam mark strip with two columns: Roll No on the left and obtained mark on the right. " +
       "Read every filled data row top to bottom. Marks are numbers, often ending in .5 (a mark written with an apostrophe or dot like 22-5 means 22.5). " +

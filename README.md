@@ -13,7 +13,7 @@ strips, watch the marks land in the real cells, download the filled `.xlsx`.
 1. Import this repo at vercel.com (New Project → Import Git Repository).
 2. In Project → Settings → Environment Variables, add:
    - `GEMINI_API_KEY` = your Google AI Studio key
-   - (optional) `GEMINI_MODEL` = `gemini-2.0-flash`
+   - (optional) `GEMINI_MODEL` = `gemini-3.6-flash`
 3. Deploy. Use the resulting `*.vercel.app` URL for photo mode.
 
 Manual tap-pad entry works anywhere (no server needed). Photo mode needs the
