@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0f1115">
+<title>Marks Entry — DU MBBS</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#2a2f3a;
+    --txt:#eef1f6; --muted:#9aa3b2; --accent:#3d7bff; --accent2:#2fd4a0;
+    --warn:#ffb020; --danger:#ff5d5d; --ok:#2fd4a0;
+    --pad:12px; --r:14px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
+    overscroll-behavior:none;}
+  body{padding-bottom:env(safe-area-inset-bottom);}
+  button{font-family:inherit;color:inherit;border:none;background:none;cursor:pointer;}
+  input,select{font-family:inherit;font-size:16px;}
+  .hide{display:none!important;}
+
+  /* Sticky header */
+  header{position:sticky;top:0;z-index:20;background:linear-gradient(180deg,#12151c,#0f1115);
+    border-bottom:1px solid var(--line);padding:10px 12px 8px;padding-top:calc(10px + env(safe-area-inset-top));}
+  .hrow{display:flex;align-items:center;gap:8px;}
+  .brand{font-weight:700;font-size:15px;letter-spacing:.2px;flex:1;}
+  .brand small{color:var(--muted);font-weight:500;}
+  .iconbtn{width:40px;height:40px;border-radius:12px;background:var(--panel2);
+    display:flex;align-items:center;justify-content:center;font-size:18px;border:1px solid var(--line);}
+  .labelbar{margin-top:8px;display:flex;gap:8px;align-items:stretch;}
+  .labelbar input{flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:12px;
+    padding:11px 12px;color:var(--txt);}
+  .resolve{margin-top:7px;font-size:13px;display:flex;align-items:center;gap:8px;min-height:20px;}
+  .pill{padding:3px 9px;border-radius:999px;font-size:12px;font-weight:700;}
+  .pill.ok{background:rgba(47,212,160,.15);color:var(--ok);border:1px solid rgba(47,212,160,.35);}
+  .pill.bad{background:rgba(255,93,93,.15);color:var(--danger);border:1px solid rgba(255,93,93,.35);}
+  .resolve .col{font-weight:800;color:var(--accent2);}
+  .resolve .desc{color:var(--muted);}
+
+  main{padding:12px;max-width:640px;margin:0 auto;}
+
+  /* Current roll card */
+  .rollcard{background:linear-gradient(180deg,var(--panel),#141821);border:1px solid var(--line);
+    border-radius:var(--r);padding:14px;display:flex;align-items:center;gap:12px;}
+  .rollcard .lbl{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
+  .rollnum{font-size:34px;font-weight:800;line-height:1;letter-spacing:.5px;}
+  .rollnum.editable{border-bottom:2px dashed var(--line);}
+  .rollmeta{flex:1;}
+  .counter{text-align:right;font-size:12px;color:var(--muted);}
+  .counter b{display:block;font-size:22px;color:var(--txt);font-weight:800;}
+  .draft{margin-top:10px;background:#0c0f15;border:1px solid var(--line);border-radius:12px;
+    min-height:48px;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:800;
+    letter-spacing:1px;color:var(--accent2);}
+  .draft.empty{color:#3b414d;font-weight:600;font-size:16px;letter-spacing:0;}
+
+  /* Quick pick grid */
+  .section-t{font-size:12px;color:var(--muted);margin:14px 2px 7px;text-transform:uppercase;letter-spacing:1px;
+    display:flex;justify-content:space-between;align-items:center;}
+  .section-t a{color:var(--accent);font-size:12px;text-transform:none;letter-spacing:0;}
+  .qgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;}
+  .qbtn{background:var(--panel2);border:1px solid var(--line);border-radius:12px;
+    padding:13px 0;font-size:17px;font-weight:700;text-align:center;transition:transform .05s;}
+  .qbtn:active{transform:scale(.94);background:#252b36;}
+  .qbtn.half{color:var(--accent2);}
+
+  /* Keypad */
+  .keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px;}
+  .key{background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:16px 0;
+    font-size:22px;font-weight:700;text-align:center;transition:transform .05s;}
+  .key:active{transform:scale(.95);background:#252b36;}
+  .key.wide{grid-column:span 1;}
+  .key.accent{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .key.accent:active{background:#2f68e0;}
+  .key.ghost{background:#12151c;color:var(--muted);}
+  .key.half{color:var(--accent2);}
+
+  .actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px;}
+  .abtn{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px 0;
+    font-size:14px;font-weight:700;text-align:center;color:var(--muted);}
+  .abtn.absent{color:var(--warn);}
+  .abtn:active{transform:scale(.96);}
+
+  /* Entered list */
+  .list{margin-top:8px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;}
+  .list .li{display:flex;align-items:center;gap:10px;padding:11px 13px;border-top:1px solid var(--line);}
+  .list .li:first-child{border-top:none;}
+  .li .r{font-weight:700;font-size:15px;width:64px;color:var(--muted);}
+  .li .m{font-weight:800;font-size:18px;flex:1;}
+  .li .m.absent{color:var(--warn);font-size:15px;}
+  .li .x{width:34px;height:34px;border-radius:9px;background:#20242e;display:flex;align-items:center;
+    justify-content:center;color:var(--danger);font-size:16px;}
+  .li.editing{background:rgba(61,123,255,.08);}
+  .emptylist{padding:26px;text-align:center;color:#4a5160;font-size:14px;}
+
+  /* Bottom bar */
+  .bottombar{position:sticky;bottom:0;background:linear-gradient(0deg,#0f1115,rgba(15,17,21,.7));
+    padding:10px 12px calc(10px + env(safe-area-inset-bottom));border-top:1px solid var(--line);
+    display:grid;grid-template-columns:1fr 1fr;gap:8px;max-width:640px;margin:0 auto;}
+  .bbtn{padding:13px 0;border-radius:12px;font-weight:800;font-size:15px;text-align:center;border:1px solid var(--line);background:var(--panel2);}
+  .bbtn.primary{background:var(--accent2);color:#04120c;border-color:var(--accent2);}
+
+  /* Sheets / modals */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:50;display:flex;align-items:flex-end;justify-content:center;}
+  .sheet{background:var(--panel);width:100%;max-width:640px;border-radius:20px 20px 0 0;border:1px solid var(--line);
+    padding:16px;max-height:88vh;overflow:auto;animation:up .18s ease;}
+  @keyframes up{from{transform:translateY(30px);opacity:.6}to{transform:none;opacity:1}}
+  .sheet h3{margin:2px 0 12px;font-size:17px;}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px;}
+  .field input,.field select{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:10px;
+    padding:11px;color:var(--txt);}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .sheet .close{width:100%;padding:13px;border-radius:12px;background:var(--accent);color:#fff;font-weight:800;margin-top:6px;}
+  .note{font-size:12.5px;color:var(--muted);line-height:1.5;background:#0c0f15;border:1px solid var(--line);
+    border-radius:10px;padding:10px;margin-top:4px;}
+  .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:80px;background:#20242e;border:1px solid var(--line);
+    color:var(--txt);padding:10px 16px;border-radius:12px;font-size:14px;z-index:80;opacity:0;transition:opacity .2s;pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,.4);}
+  .toast.show{opacity:1;}
+  textarea{width:100%;min-height:120px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;color:var(--txt);padding:10px;font-family:ui-monospace,monospace;font-size:13px;}
+
+  /* AI review */
+  .aiq{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--line);border-radius:12px;margin-bottom:8px;background:var(--panel2);}
+  .aiq .r{font-weight:800;width:60px;}
+  .aiq input{width:80px;text-align:center;font-size:18px;font-weight:800;}
+  .aiq .del{color:var(--danger);margin-left:auto;font-size:20px;padding:4px 8px;}
+  .prog{height:6px;background:#0c0f15;border-radius:6px;overflow:hidden;margin:8px 0;}
+  .prog > div{height:100%;background:var(--accent);width:0;transition:width .3s;}
+</style>
+</head>
+<body>
+<header>
+  <div class="hrow">
+    <div class="brand">Marks Entry <small id="hsub">· DU MBBS</small></div>
+    <button class="iconbtn" id="aiBtn" title="Scan photo">📷</button>
+    <button class="iconbtn" id="setBtn" title="Settings">⚙️</button>
+  </div>
+  <div class="labelbar">
+    <input id="labelInput" placeholder="e.g. medicine 2nd paper B-1" autocomplete="off" spellcheck="false">
+  </div>
+  <div class="resolve" id="resolve"><span class="desc">Type the paper label above to begin.</span></div>
+</header>
+
+<main>
+  <div class="rollcard">
+    <div class="rollmeta">
+      <div class="lbl">Current roll</div>
+      <div class="rollnum editable" id="rollNum" title="Tap to change">—</div>
+    </div>
+    <div class="counter">
+      <span>entered</span>
+      <b id="count">0</b>
+      <span id="rangeInfo"></span>
+    </div>
+  </div>
+
+  <div class="draft empty" id="draft">tap a mark below</div>
+
+  <div class="section-t">Quick marks <a id="rangeEdit">range ▾</a></div>
+  <div class="qgrid" id="qgrid"></div>
+
+  <div class="section-t">Keypad</div>
+  <div class="keypad" id="keypad">
+    <button class="key" data-k="1">1</button>
+    <button class="key" data-k="2">2</button>
+    <button class="key" data-k="3">3</button>
+    <button class="key" data-k="4">4</button>
+    <button class="key" data-k="5">5</button>
+    <button class="key" data-k="6">6</button>
+    <button class="key" data-k="7">7</button>
+    <button class="key" data-k="8">8</button>
+    <button class="key" data-k="9">9</button>
+    <button class="key half" data-k=".5">·5</button>
+    <button class="key" data-k="0">0</button>
+    <button class="key ghost" data-k="back">⌫</button>
+  </div>
+  <div class="actions">
+    <button class="abtn absent" id="absentBtn">Absent</button>
+    <button class="abtn" id="skipBtn">Skip ▸</button>
+    <button class="key accent" id="enterBtn" style="border-radius:12px;padding:12px 0;font-size:16px;">Enter ✓</button>
+  </div>
+
+  <div class="section-t">Entered this session <a id="undoBtn">undo last</a></div>
+  <div class="list" id="list"><div class="emptylist">No marks yet. Set a roll number and start tapping.</div></div>
+</main>
+
+<div class="bottombar">
+  <button class="bbtn" id="copyBtn">Copy list</button>
+  <button class="bbtn primary" id="exportBtn">Export CSV</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Settings sheet -->
+<div class="overlay hide" id="setOverlay">
+  <div class="sheet">
+    <h3>Settings</h3>
+    <div class="field">
+      <label>Starting roll for a new strip</label>
+      <input id="startRoll" type="number" inputmode="numeric" placeholder="e.g. 1573">
+    </div>
+    <div class="field">
+      <label>Auto-advance roll after each entry</label>
+      <select id="autoAdv"><option value="1">On (roll +1 automatically)</option><option value="0">Off</option></select>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Quick-marks min</label><input id="qmin" type="number" step="0.5" value="16"></div>
+      <div class="field"><label>Quick-marks max</label><input id="qmax" type="number" step="0.5" value="28"></div>
+    </div>
+    <div class="field">
+      <label>Haptic feedback</label>
+      <select id="haptic"><option value="1">On</option><option value="0">Off</option></select>
+    </div>
+    <hr style="border-color:var(--line);margin:16px 0;">
+    <h3 style="font-size:15px;">AI-assist (optional, free tier)</h3>
+    <div class="field">
+      <label>Google Gemini API key <span style="color:var(--muted)">— free at aistudio.google.com/apikey</span></label>
+      <input id="geminiKey" type="password" placeholder="paste key (stored only on this phone)" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>Gemini model</label>
+      <input id="geminiModel" value="gemini-2.0-flash">
+    </div>
+    <div class="note">Your Claude subscription doesn't include free API access, so AI-assist uses Google's free tier instead. The key is stored only in this browser and used just to read your photos. Manual entry works fully without any key.</div>
+    <button class="close" id="setClose">Done</button>
+  </div>
+</div>
+
+<!-- Range sheet -->
+<div class="overlay hide" id="rangeOverlay">
+  <div class="sheet">
+    <h3>Quick-marks range</h3>
+    <div class="row2">
+      <div class="field"><label>Min</label><input id="rmin" type="number" step="0.5"></div>
+      <div class="field"><label>Max</label><input id="rmax" type="number" step="0.5"></div>
+    </div>
+    <div class="note">Marks usually cluster in a small band. A tighter range means fewer, bigger buttons and faster tapping.</div>
+    <button class="close" id="rangeClose">Apply</button>
+  </div>
+</div>
+
+<!-- Export sheet -->
+<div class="overlay hide" id="exportOverlay">
+  <div class="sheet">
+    <h3>Export — <span id="expLabel"></span></h3>
+    <div class="note" id="expSummary"></div>
+    <textarea id="exportText" readonly></textarea>
+    <div class="row2" style="margin-top:10px;">
+      <button class="bbtn" id="expCopy">Copy text</button>
+      <button class="bbtn primary" id="expDownload">Download CSV</button>
+    </div>
+    <button class="close" id="exportClose" style="background:var(--panel2);">Close</button>
+  </div>
+</div>
+
+<!-- AI sheet -->
+<div class="overlay hide" id="aiOverlay">
+  <div class="sheet">
+    <h3>Scan a strip photo</h3>
+    <div id="aiStart">
+      <div class="note" id="aiNote"></div>
+      <div class="field" style="margin-top:12px;">
+        <label>Take or choose a photo of the strip</label>
+        <input id="aiFile" type="file" accept="image/*" capture="environment">
+      </div>
+      <div class="field">
+        <label>First roll number on this photo</label>
+        <input id="aiFirstRoll" type="number" inputmode="numeric" placeholder="e.g. 1573">
+      </div>
+      <button class="close" id="aiRun">Read marks with AI</button>
+    </div>
+    <div id="aiBusy" class="hide">
+      <div class="prog"><div id="aiBar"></div></div>
+      <p style="text-align:center;color:var(--muted)" id="aiStatus">Reading…</p>
+    </div>
+    <div id="aiReview" class="hide">
+      <div class="note">Check each value against the photo, fix any, then add them all. Blank = skipped.</div>
+      <div id="aiList" style="margin-top:10px;"></div>
+      <div class="row2">
+        <button class="bbtn" id="aiCancel">Cancel</button>
+        <button class="bbtn primary" id="aiAdd">Add all ✓</button>
+      </div>
+    </div>
+    <button class="close" id="aiClose" style="background:var(--panel2);margin-top:10px;">Close</button>
+  </div>
+</div>
+
+<script>
+/* ---------- guarded storage (won't crash in sandboxed iframes) ---------- */
+const store = (()=>{
+  let ok=true; try{const k='__t';localStorage.setItem(k,'1');localStorage.removeItem(k);}catch(e){ok=false;}
+  const mem={};
+  return {
+    get:(k,d)=>{try{if(ok){const v=localStorage.getItem(k);return v===null?d:v;}}catch(e){}
+      return (k in mem)?mem[k]:d;},
+    set:(k,v)=>{try{if(ok){localStorage.setItem(k,v);return;}}catch(e){}mem[k]=v;},
+  };
+})();
+
+/* ---------- column mapping ---------- */
+const MAP = {
+  MED:{name:'Medicine', c:{
+    '1P.A':'K','1P.B':'L','2P.A':'O','2P.B1':'P','2P.B2':'Q','FORM':'T',
+    'OSPE':'V','ORAL':'W','CLIN':'X','WTOT':'U','TOT':'Y'}},
+  SURG:{name:'Surgery', c:{
+    '1P.A':'Z','1P.B':'AA','1P.C':'AB','1P.D':'AC','2P.A':'AF','2P.B':'AG','2P.C':'AH','2P.D':'AI',
+    'FORM':'AP','OSPE':'AT','ORAL':'AW','CLIN':'AZ','WTOT':'AQ','TOT':'BA'}},
+  OBG:{name:'Obs & Gynae', c:{
+    '1P.A':'BB','1P.B':'BC','2P.A':'BF','2P.B':'BG','FORM':'BJ',
+    'OSPE':'BL','ORAL':'BM','CLIN':'BN','WTOT':'BK','TOT':'BO'}},
+};
+const COMP_NAME={'1P':'1st Paper','2P':'2nd Paper','FORM':'Formative','OSPE':'OSPE','ORAL':'Oral','CLIN':'Clinical','WTOT':'Written Total','TOT':'Subject Total'};
+
+function parseLabel(raw){
+  if(!raw||!raw.trim()) return null;
+  const s=' '+raw.toLowerCase().replace(/[_\-]/g,' ').replace(/\s+/g,' ')+' ';
+  // subject
+  let subj=null;
+  if(/\bmed/.test(s)) subj='MED';
+  else if(/\bsurg/.test(s)) subj='SURG';
+  else if(/\bobs|gyn|o ?& ?g|\bobg/.test(s)) subj='OBG';
+  if(!subj) return {error:'subject'};
+  // component group
+  let comp=null;
+  if(/\bospe/.test(s)) comp='OSPE';
+  else if(/\boral/.test(s)) comp='ORAL';
+  else if(/\bcl[in]*ical|\bclnical/.test(s)) comp='CLIN';
+  else if(/\bformativ/.test(s)) comp='FORM';
+  else if(/2nd|second|paper ?2|p2|\b2 ?p/.test(s)) comp='2P';
+  else if(/1st|first|paper ?1|p1|\b1 ?p/.test(s)) comp='1P';
+  else if(/written.*total|\bwtot/.test(s)) comp='WTOT';
+  else if(/subject.*total|\btotal\b/.test(s)) comp='TOT';
+  if(!comp) return {error:'component', subj};
+  // sub for papers
+  let key=comp;
+  if(comp==='1P'||comp==='2P'){
+    let sub=null;
+    if(/b ?1\b/.test(s)) sub='B1';
+    else if(/b ?2\b/.test(s)) sub='B2';
+    else if(/\bd\b/.test(s)) sub='D';
+    else if(/\bc\b/.test(s)) sub='C';
+    else if(/\bb\b/.test(s)) sub='B';
+    else if(/\ba\b/.test(s)) sub='A';
+    if(!sub) return {error:'sub', subj, comp};
+    key=comp+'.'+sub;
+  }
+  const col=MAP[subj].c[key];
+  if(!col) return {error:'nomap', subj, comp, key};
+  // human desc
+  let sub=key.includes('.')?key.split('.')[1].replace('B1','B-1').replace('B2','B-2'):'';
+  const desc=MAP[subj].name+' · '+COMP_NAME[comp]+(sub?(' · '+sub):'');
+  return {subj, comp, key, col, desc};
+}
+
+/* ---------- state ---------- */
+let S = {
+  label: store.get('label',''),
+  roll: parseInt(store.get('roll','')||'')||null,
+  entries: JSON.parse(store.get('entries','[]')||'[]'),
+  resolved: null,
+  draft: '',
+  editIndex: -1,
+};
+let CFG = {
+  autoAdv: store.get('autoAdv','1'),
+  qmin: parseFloat(store.get('qmin','16')),
+  qmax: parseFloat(store.get('qmax','28')),
+  haptic: store.get('haptic','1'),
+  geminiKey: store.get('geminiKey',''),
+  geminiModel: store.get('geminiModel','gemini-2.0-flash'),
+};
+
+function saveState(){
+  store.set('label',S.label);
+  store.set('roll',S.roll==null?'':String(S.roll));
+  store.set('entries',JSON.stringify(S.entries));
+}
+function saveCfg(){
+  store.set('autoAdv',CFG.autoAdv);store.set('qmin',String(CFG.qmin));store.set('qmax',String(CFG.qmax));
+  store.set('haptic',CFG.haptic);store.set('geminiKey',CFG.geminiKey);store.set('geminiModel',CFG.geminiModel);
+}
+
+/* ---------- helpers ---------- */
+const $=id=>document.getElementById(id);
+function buzz(ms){ if(CFG.haptic==='1'&&navigator.vibrate){try{navigator.vibrate(ms||8);}catch(e){}} }
+let toastT;
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastT);
+  toastT=setTimeout(()=>t.classList.remove('show'),1600); }
+
+function fmtMark(v){ if(v==='A') return 'Absent'; return (v%1===0)?String(v):String(v); }
+
+/* ---------- render ---------- */
+function renderResolve(){
+  const r=$('resolve');
+  const res=parseLabel(S.label);
+  S.resolved=(res&&!res.error)?res:null;
+  if(!S.label.trim()){ r.innerHTML='<span class="desc">Type the paper label above to begin.</span>'; return; }
+  if(!res||res.error){
+    let msg='Couldn’t map that label';
+    if(res&&res.error==='subject') msg='Which subject? (Medicine / Surgery / Obs)';
+    else if(res&&res.error==='component') msg='Which part? (1st/2nd paper, OSPE, Oral, Clinical…)';
+    else if(res&&res.error==='sub') msg='Which sub-column? (A, B, B-1, B-2…)';
+    r.innerHTML='<span class="pill bad">?</span><span class="desc">'+msg+'</span>';
+    return;
+  }
+  r.innerHTML='<span class="pill ok">✓</span><span class="col">Column '+res.col+'</span><span class="desc">'+res.desc+'</span>';
+}
+function renderRoll(){ $('rollNum').textContent = S.roll==null?'—':S.roll; }
+function renderDraft(){
+  const d=$('draft');
+  if(S.editIndex>=0){ d.classList.remove('empty'); d.textContent=(S.draft||'')+' ✎'; return; }
+  if(!S.draft){ d.classList.add('empty'); d.textContent='tap a mark below'; }
+  else { d.classList.remove('empty'); d.textContent=S.draft; }
+}
+function renderCount(){
+  $('count').textContent=S.entries.length;
+  const ri=$('rangeInfo');
+  if(S.entries.length){ const rolls=S.entries.map(e=>e.roll); ri.textContent=Math.min(...rolls)+'–'+Math.max(...rolls); }
+  else ri.textContent='';
+}
+function renderList(){
+  const el=$('list');
+  if(!S.entries.length){ el.innerHTML='<div class="emptylist">No marks yet. Set a roll number and start tapping.</div>'; return; }
+  el.innerHTML='';
+  // newest first
+  for(let i=S.entries.length-1;i>=0;i--){
+    const e=S.entries[i];
+    const div=document.createElement('div');
+    div.className='li'+(i===S.editIndex?' editing':'');
+    const absent=e.mark==='A';
+    div.innerHTML='<span class="r">'+e.roll+'</span><span class="m'+(absent?' absent':'')+'">'+(absent?'Absent':e.mark)+'</span><button class="x" data-i="'+i+'">✕</button>';
+    div.querySelector('.m').addEventListener('click',()=>editEntry(i));
+    div.querySelector('.r').addEventListener('click',()=>editEntry(i));
+    div.querySelector('.x').addEventListener('click',(ev)=>{ev.stopPropagation();delEntry(i);});
+    el.appendChild(div);
+  }
+}
+function renderQuick(){
+  const g=$('qgrid'); g.innerHTML='';
+  const min=CFG.qmin, max=CFG.qmax;
+  if(max<min||(max-min)>40){ g.innerHTML='<div class="emptylist" style="grid-column:span 5">Set a valid range (max ≥ min, span ≤ 40).</div>'; return; }
+  for(let v=min; v<=max+1e-9; v+=0.5){
+    const val=Math.round(v*2)/2;
+    const b=document.createElement('button');
+    b.className='qbtn'+((val%1!==0)?' half':'');
+    b.textContent=(val%1===0)?val:val;
+    b.addEventListener('click',()=>commit(val));
+    g.appendChild(b);
+  }
+}
+function renderAll(){ renderResolve();renderRoll();renderDraft();renderCount();renderList();renderQuick(); }
+
+/* ---------- entry logic ---------- */
+function needRoll(){ if(S.roll==null){ toast('Set the current roll first'); promptRoll(); return true;} return false; }
+
+function commit(mark){
+  if(S.editIndex>=0){ // editing existing
+    S.entries[S.editIndex].mark=mark;
+    S.editIndex=-1; S.draft='';
+    buzz(10); saveState(); renderAll(); toast('Updated'); return;
+  }
+  if(needRoll()) return;
+  // replace if this roll already entered
+  const ex=S.entries.findIndex(e=>e.roll===S.roll);
+  if(ex>=0) S.entries[ex].mark=mark;
+  else S.entries.push({roll:S.roll, mark:mark});
+  buzz(8);
+  S.draft='';
+  if(CFG.autoAdv==='1') S.roll+=1;
+  saveState(); renderAll();
+}
+function commitDraft(){
+  if(S.editIndex>=0){ if(S.draft==='') {toast('Enter a value');return;} commit(parseFloat(S.draft)); return; }
+  if(S.draft===''){ toast('Type a mark first'); return; }
+  const v=parseFloat(S.draft);
+  if(isNaN(v)){ toast('Invalid'); return; }
+  commit(v);
+}
+function keyPress(k){
+  if(k==='back'){ S.draft=S.draft.slice(0,-1); renderDraft(); buzz(5); return; }
+  if(k==='.5'){ if(S.draft===''||S.draft.includes('.')) {return;} S.draft+='.5'; renderDraft(); buzz(5); return; }
+  if(S.draft.includes('.')&&k!=='.5'){ return; } // no digits after .5
+  if(S.draft.replace('.','').length>=4) return;
+  S.draft+=k; renderDraft(); buzz(4);
+}
+function absent(){
+  if(needRoll()) return;
+  const ex=S.entries.findIndex(e=>e.roll===S.roll);
+  if(ex>=0) S.entries[ex].mark='A'; else S.entries.push({roll:S.roll,mark:'A'});
+  S.draft=''; if(CFG.autoAdv==='1') S.roll+=1; buzz(12); saveState(); renderAll();
+}
+function skip(){ if(needRoll())return; S.draft=''; S.roll+=1; buzz(6); renderRoll();renderDraft(); }
+function undoLast(){ if(!S.entries.length){toast('Nothing to undo');return;}
+  const e=S.entries.pop(); if(CFG.autoAdv==='1'&&S.editIndex<0) S.roll=e.roll; S.editIndex=-1; S.draft=''; saveState(); renderAll(); toast('Removed roll '+e.roll); }
+function editEntry(i){ S.editIndex=i; S.draft=String(S.entries[i].mark==='A'?'':S.entries[i].mark); renderAll();
+  window.scrollTo({top:0,behavior:'smooth'}); toast('Editing roll '+S.entries[i].roll); }
+function delEntry(i){ const e=S.entries[i]; S.entries.splice(i,1); if(S.editIndex===i){S.editIndex=-1;S.draft='';} saveState(); renderAll(); toast('Deleted roll '+e.roll); }
+
+function promptRoll(){
+  const v=prompt('Current roll number:', S.roll==null?'':S.roll);
+  if(v===null) return;
+  const n=parseInt(v); if(isNaN(n)){toast('Invalid roll');return;}
+  S.roll=n; S.editIndex=-1; S.draft=''; saveState(); renderAll();
+}
+
+/* ---------- export ---------- */
+function buildCSV(){
+  const res=S.resolved;
+  const col=res?res.col:'';
+  const label=S.label.trim();
+  let rows=[['roll','mark','column','label']];
+  const sorted=[...S.entries].sort((a,b)=>a.roll-b.roll);
+  sorted.forEach(e=>rows.push([e.roll, e.mark==='A'?'A':e.mark, col, label]));
+  return rows.map(r=>r.join(',')).join('\n');
+}
+function openExport(){
+  if(!S.entries.length){ toast('No marks to export'); return; }
+  const csv=buildCSV();
+  $('exportText').value=csv;
+  $('expLabel').textContent=S.label.trim()||'(no label)';
+  const res=S.resolved;
+  const rolls=S.entries.map(e=>e.roll);
+  const absent=S.entries.filter(e=>e.mark==='A').length;
+  $('expSummary').innerHTML=(res?('Target column <b style="color:var(--accent2)">'+res.col+'</b> — '+res.desc+'.<br>'):'<b style="color:var(--warn)">Label not recognised — I’ll map the column when you send it.</b><br>')
+    +S.entries.length+' marks, rolls '+Math.min(...rolls)+'–'+Math.max(...rolls)+(absent?(', '+absent+' absent'):'')+'.';
+  show('exportOverlay');
+}
+function download(){
+  const csv=buildCSV();
+  const res=S.resolved;
+  const safe=(S.label.trim()||'marks').replace(/[^a-z0-9]+/gi,'_').replace(/^_|_$/g,'');
+  const name='marks_'+safe+(res?('_col'+res.col):'')+'.csv';
+  const blob=new Blob([csv],{type:'text/csv'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  toast('Downloaded '+name);
+}
+async function copyText(txt,msg){
+  try{ await navigator.clipboard.writeText(txt); toast(msg||'Copied'); }
+  catch(e){ const t=document.createElement('textarea'); t.value=txt; document.body.appendChild(t); t.select();
+    try{document.execCommand('copy');toast(msg||'Copied');}catch(_){toast('Copy failed');} t.remove(); }
+}
+
+/* ---------- AI (Gemini) ---------- */
+function fileToBase64(file){ return new Promise((res,rej)=>{ const r=new FileReader();
+  r.onload=()=>res(r.result.split(',')[1]); r.onerror=rej; r.readAsDataURL(file); }); }
+
+let aiResults=[];
+async function runAI(){
+  const key=CFG.geminiKey.trim();
+  const file=$('aiFile').files[0];
+  const firstRoll=parseInt($('aiFirstRoll').value);
+  if(!file){ toast('Choose a photo'); return; }
+  if(!key){ toast('Add a Gemini key in Settings, or use manual entry'); return; }
+  $('aiStart').classList.add('hide'); $('aiBusy').classList.remove('hide');
+  $('aiBar').style.width='25%'; $('aiStatus').textContent='Uploading photo…';
+  try{
+    const b64=await fileToBase64(file);
+    $('aiBar').style.width='55%'; $('aiStatus').textContent='Reading handwriting…';
+    const prompt='This is a handwritten exam mark strip (two columns: Roll No and obtained mark). '+
+      'Read every filled row top to bottom. Marks are numbers, often ending in .5 (a mark written like 22-5 or 22.5 with an apostrophe or dot means 22.5). '+
+      'If a roll has no mark or is blank, use null. Ignore header text. '+
+      'Return ONLY a JSON array, no prose, like: [{"roll":1573,"mark":22.5},{"roll":1574,"mark":null}]. '+
+      'If roll numbers are cut off or unreadable, still return marks in order with roll as null.';
+    const url='https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(CFG.geminiModel)+':generateContent?key='+encodeURIComponent(key);
+    const body={contents:[{parts:[{text:prompt},{inline_data:{mime_type:file.type||'image/jpeg',data:b64}}]}],
+      generationConfig:{temperature:0,response_mime_type:'application/json'}};
+    const resp=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!resp.ok){ const t=await resp.text(); throw new Error('API '+resp.status+': '+t.slice(0,200)); }
+    const data=await resp.json();
+    $('aiBar').style.width='85%'; $('aiStatus').textContent='Parsing…';
+    let txt=data?.candidates?.[0]?.content?.parts?.[0]?.text||'';
+    txt=txt.replace(/```json/gi,'').replace(/```/g,'').trim();
+    let arr=JSON.parse(txt);
+    if(!Array.isArray(arr)) throw new Error('Unexpected response');
+    // assign rolls sequentially from firstRoll if provided / missing
+    let roll = isNaN(firstRoll)?null:firstRoll;
+    aiResults=arr.map((o,i)=>{
+      let r = (o.roll!=null&&!isNaN(o.roll))?parseInt(o.roll):(roll!=null?roll:null);
+      if(roll!=null) roll = r+1; // continue from detected/assigned
+      let m = (o.mark==null||o.mark==='')?'':parseFloat(o.mark);
+      return {roll:r, mark:(m===''||isNaN(m))?'':m};
+    });
+    showAIReview();
+  }catch(e){
+    $('aiBusy').classList.add('hide'); $('aiStart').classList.remove('hide');
+    toast('AI read failed'); alert('Could not read the photo.\n\n'+e.message+'\n\nYou can still enter marks manually.');
+  }
+}
+function showAIReview(){
+  $('aiBusy').classList.add('hide'); $('aiReview').classList.remove('hide');
+  const wrap=$('aiList'); wrap.innerHTML='';
+  aiResults.forEach((o,i)=>{
+    const row=document.createElement('div'); row.className='aiq';
+    row.innerHTML='<span class="r">#'+(o.roll??'?')+'</span>'+
+      '<input type="number" step="0.5" inputmode="decimal" value="'+(o.mark===''?'':o.mark)+'" data-i="'+i+'">'+
+      '<button class="del" data-i="'+i+'">✕</button>';
+    row.querySelector('input').addEventListener('input',ev=>{ const v=ev.target.value; aiResults[i].mark=(v===''?'':parseFloat(v)); });
+    row.querySelector('.del').addEventListener('click',()=>{ aiResults.splice(i,1); showAIReview(); });
+    wrap.appendChild(row);
+  });
+}
+function aiAddAll(){
+  let added=0;
+  aiResults.forEach(o=>{
+    if(o.roll==null) return;
+    if(o.mark===''||o.mark==null||isNaN(o.mark)) return;
+    const ex=S.entries.findIndex(e=>e.roll===o.roll);
+    if(ex>=0) S.entries[ex].mark=o.mark; else S.entries.push({roll:o.roll,mark:o.mark});
+    added++;
+  });
+  // set next roll
+  if(S.entries.length){ S.roll=Math.max(...S.entries.map(e=>e.roll))+1; }
+  saveState(); renderAll(); hide('aiOverlay'); toast('Added '+added+' marks');
+  resetAI();
+}
+function resetAI(){ $('aiReview').classList.add('hide'); $('aiBusy').classList.add('hide'); $('aiStart').classList.remove('hide'); $('aiBar').style.width='0'; aiResults=[]; }
+
+/* ---------- overlays ---------- */
+function show(id){ $(id).classList.remove('hide'); }
+function hide(id){ $(id).classList.add('hide'); }
+
+/* ---------- wire up ---------- */
+function init(){
+  // restore label/roll
+  $('labelInput').value=S.label;
+  // events: label
+  $('labelInput').addEventListener('input',e=>{ S.label=e.target.value; saveState(); renderResolve(); });
+  // roll edit
+  $('rollNum').addEventListener('click',promptRoll);
+  // keypad
+  $('keypad').addEventListener('click',e=>{ const b=e.target.closest('.key'); if(!b)return; keyPress(b.dataset.k); });
+  $('enterBtn').addEventListener('click',commitDraft);
+  $('absentBtn').addEventListener('click',absent);
+  $('skipBtn').addEventListener('click',skip);
+  $('undoBtn').addEventListener('click',undoLast);
+  // export/copy
+  $('exportBtn').addEventListener('click',openExport);
+  $('copyBtn').addEventListener('click',()=>{ if(!S.entries.length){toast('No marks yet');return;}
+    const t=[...S.entries].sort((a,b)=>a.roll-b.roll).map(e=>e.roll+'\t'+(e.mark==='A'?'A':e.mark)).join('\n'); copyText(t,'List copied'); });
+  $('expCopy').addEventListener('click',()=>copyText($('exportText').value,'CSV copied'));
+  $('expDownload').addEventListener('click',download);
+  $('exportClose').addEventListener('click',()=>hide('exportOverlay'));
+  // settings
+  $('setBtn').addEventListener('click',openSettings);
+  $('setClose').addEventListener('click',closeSettings);
+  // range
+  $('rangeEdit').addEventListener('click',()=>{ $('rmin').value=CFG.qmin; $('rmax').value=CFG.qmax; show('rangeOverlay'); });
+  $('rangeClose').addEventListener('click',()=>{ CFG.qmin=parseFloat($('rmin').value); CFG.qmax=parseFloat($('rmax').value);
+    saveCfg(); renderQuick(); hide('rangeOverlay'); });
+  // AI
+  $('aiBtn').addEventListener('click',openAI);
+  $('aiRun').addEventListener('click',runAI);
+  $('aiAdd').addEventListener('click',aiAddAll);
+  $('aiCancel').addEventListener('click',resetAI);
+  $('aiClose').addEventListener('click',()=>{ hide('aiOverlay'); resetAI(); });
+  // close overlays on backdrop tap
+  document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{ if(e.target===o) o.classList.add('hide'); }));
+  renderAll();
+}
+function openSettings(){
+  $('startRoll').value=S.roll==null?'':S.roll;
+  $('autoAdv').value=CFG.autoAdv; $('qmin').value=CFG.qmin; $('qmax').value=CFG.qmax;
+  $('haptic').value=CFG.haptic; $('geminiKey').value=CFG.geminiKey; $('geminiModel').value=CFG.geminiModel;
+  show('setOverlay');
+}
+function closeSettings(){
+  const sr=parseInt($('startRoll').value); if(!isNaN(sr)) S.roll=sr;
+  CFG.autoAdv=$('autoAdv').value; CFG.qmin=parseFloat($('qmin').value)||16; CFG.qmax=parseFloat($('qmax').value)||28;
+  CFG.haptic=$('haptic').value; CFG.geminiKey=$('geminiKey').value.trim(); CFG.geminiModel=$('geminiModel').value.trim()||'gemini-2.0-flash';
+  saveCfg(); saveState(); renderAll(); hide('setOverlay');
+}
+function openAI(){
+  const has=!!CFG.geminiKey.trim();
+  $('aiNote').innerHTML = has
+    ? 'AI-assist is on. Take a clear, straight-on photo of the strip for best results.'
+    : 'No AI key yet. Add a free Google Gemini key in ⚙️ Settings to enable photo reading — or just use the fast manual pad. <b>Manual entry needs no key.</b>';
+  $('aiFirstRoll').value = S.roll==null?'':S.roll;
+  resetAI(); show('aiOverlay');
+}
+
+document.addEventListener('DOMContentLoaded',init);
+</script>
+</body>
+</html>
